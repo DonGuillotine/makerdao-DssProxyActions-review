@@ -55,3 +55,69 @@ I am Donald Nwokoro, a smart contract developer, an experienced AI Engineer and 
 - Twitter: [Donald Nwokoro](https://twitter.com/_donGuillotine)
 - LinkedIn: [Donald Nwokoro](https://www.linkedin.com/in/donald-nwokoro/)
 
+### 1.5 Makerdao <div id="Cpg"/>
+
+MakerDAO is a pioneering decentralized finance (DeFi) protocol that enables users to generate DAI, a decentralized stablecoin, by depositing various cryptocurrency assets as collateral. The protocol is one of the most established and respected projects in the DeFi ecosystem, known for its strong technical architecture and great approach to maintaining DAI's stability through a complex system of smart contracts.
+
+### 1.6 DssProxyActions <div id="Gbd"/>
+
+DssProxyActions is a critical contract within the MakerDAO ecosystem that facilitates user interactions with the protocol through proxy contracts. It provides a set of standardized actions that users can execute to interact with their Collateralized Debt Positions (CDPs), manage collateral, and handle DAI transactions. This contract serves as an interface layer that simplifies complex multi-step operations into single transactions.
+
+### 1.7 Scope <div id="scope"/>
+
+The scope of this audit covers:
+
+1. DssProxyActions.sol contract review
+2. Contract interfaces and their implementations:
+   - GemLike
+   - ManagerLike
+   - VatLike
+   - GemJoinLike
+   - DaiJoinLike
+   - HopeLike
+   - EndLike
+   - JugLike
+   - PotLike
+   - ProxyRegistryLike
+   - ProxyLike
+
+Core functionalities under review:
+- CDP management operations
+- Collateral locking and unlocking
+- DAI generation and repayment
+- Emergency shutdown handling
+- Proxy registry interactions
+
+### 1.8 Roles <div id="roles"/>
+
+The contract system involves several key roles:
+
+1. **Users**: End users who interact with the MakerDAO system through proxy contracts
+2. **CDP Owners**: Users who own and manage Collateralized Debt Positions
+3. **Proxy Contracts**: Smart contract wallets that execute actions on behalf of users
+4. **System Contracts**: Core MakerDAO contracts that handle various protocol functions
+
+### 1.9 System Overview <div id="overview"/>
+
+The DssProxyActions contract implements a proxy pattern that allows users to interact with multiple MakerDAO system components through a single interface. Key system components include:
+
+1. **CDP Management**
+   - Opening and closing positions
+   - Collateral management
+   - Debt management
+
+2. **Token Operations**
+   - ETH/WETH handling
+   - ERC20 token interactions
+   - DAI minting and burning
+
+3. **System Interactions**
+   - Vat (core accounting)
+   - Jug (stability fee accrual)
+   - Join/Exit adapters
+   - Emergency shutdown handling
+
+4. **Security Mechanisms**
+   - Permission management
+   - Safe transfer operations
+   - CDP ownership verification
