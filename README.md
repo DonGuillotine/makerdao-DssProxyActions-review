@@ -264,6 +264,173 @@ function wipe(
 - Implements proper authorization checks
 - Contains multiple execution paths based on permissions
 
+6. **Token Conversion and Decimal Handling**
+```solidity
+function convertTo18(address gemJoin, uint256 amt) internal returns (uint256 wad) {
+    wad = mul(
+        amt,
+        10 ** (18 - GemJoinLike(gemJoin).dec())
+    );
+}
+```
+- Handles token decimal normalization
+- Critical for non-18 decimal tokens
+- Potential precision loss concerns for certain token types
+
+7. **Emergency Shutdown Handling**
+```solidity
+function _free(
+    address manager,
+    address end,
+    uint cdp
+) internal returns (uint ink) {
+    bytes32 ilk = ManagerLike(manager).ilks(cdp);
+    address urn = ManagerLike(manager).urns(cdp);
+    VatLike vat = VatLike(ManagerLike(manager).vat());
+    uint art;
+    (ink, art) = vat.urns(ilk, urn);
+
+    if (art > 0) {
+        EndLike(end).skim(ilk, urn);
+        (ink,) = vat.urns(ilk, urn);
+    }
+    // Critical emergency shutdown logic
+}
+```
+- Emergency shutdown protocol integration
+- Debt settlement mechanisms
+- Collateral recovery procedures
+
+8. **Validation and Error Handling**
+```solidity
+function _getDrawDart(
+    address vat,
+    address jug,
+    address urn,
+    bytes32 ilk,
+    uint wad
+) internal returns (int dart) {
+    uint rate = JugLike(jug).drip(ilk);
+    uint dai = VatLike(vat).dai(urn);
+
+    if (dai < mul(wad, RAY)) {
+        dart = toInt(sub(mul(wad, RAY), dai) / rate);
+        dart = mul(uint(dart), rate) < mul(wad, RAY) ? dart + 1 : dart;
+    }
+}
+```
+- Complex arithmetic validation
+- Rate adjustment mechanisms
+- Precision handling for dart calculations
+
+9. **Gas Optimization Patterns**
+```solidity
+function wipeAll(
+    address manager,
+    address daiJoin,
+    uint cdp
+) public {
+    address vat = ManagerLike(manager).vat();
+    address urn = ManagerLike(manager).urns(cdp);
+    bytes32 ilk = ManagerLike(manager).ilks(cdp);
+    (, uint art) = VatLike(vat).urns(ilk, urn);
+    
+    // Efficient storage access patterns
+    address own = ManagerLike(manager).owns(cdp);
+    if (own == address(this) || ManagerLike(manager).cdpCan(own, cdp, address(this)) == 1) {
+        daiJoin_join(daiJoin, urn, _getWipeAllWad(vat, urn, urn, ilk));
+        frob(manager, cdp, 0, -int(art));
+    }
+}
+```
+- Optimized storage reads
+- Minimized external calls
+- Efficient state updates
+
+10. **Access Control Implementation**
+```solidity
+function urnAllow(
+    address manager,
+    address usr,
+    uint ok
+) public {
+    ManagerLike(manager).urnAllow(usr, ok);
+}
+
+function cdpAllow(
+    address manager,
+    uint cdp,
+    address usr,
+    uint ok
+) public {
+    ManagerLike(manager).cdpAllow(cdp, usr, ok);
+}
+```
+- Granular permission management
+- User-level access controls
+- CDP-specific authorizations
+
+11. **Event Emission Analysis**
+- Notable lack of events in proxy actions
+- Reliance on underlying contract events
+- Potential tracking limitations
+
+12. **Interface Integration**
+```solidity
+interface GemLike {
+    function approve(address, uint) external;
+    function transfer(address, uint) external;
+    function transferFrom(address, address, uint) external;
+    function deposit() external payable;
+    function withdraw(uint) external;
+}
+```
+- Comprehensive interface definitions
+- Standard token compatibility
+- External contract interactions
+
+13. **Reentrancy Protection Analysis**
+```solidity
+function lockGemAndDraw(
+    address manager,
+    address jug,
+    address gemJoin,
+    address daiJoin,
+    uint cdp,
+    uint amtC,
+    uint wadD,
+    bool transferFrom
+) public {
+    // Multiple state changes with external calls
+    gemJoin_join(gemJoin, urn, amtC, transferFrom);
+    frob(manager, cdp, toInt(convertTo18(gemJoin, amtC)), _getDrawDart(vat, jug, urn, ilk, wadD));
+    move(manager, cdp, address(this), toRad(wadD));
+}
+```
+- Complex state transition patterns
+- External call sequencing
+- Potential reentrancy vectors
+
+14. **Proxy Pattern Security**
+```solidity
+function giveToProxy(
+    address proxyRegistry,
+    address manager,
+    uint cdp,
+    address dst
+) public {
+    // Contract size check implementation
+    uint csize;
+    assembly {
+        csize := extcodesize(dst)
+    }
+    require(csize == 0, "Dst-is-a-contract");
+}
+```
+- Contract existence checks
+- Ownership transfer safety
+- Proxy deployment validation
+
 ## 3.0 FINDINGS <div id="findings"/>
 
 ### 3.1 Qualitative Analysis <div id="Qanalysis"/>
