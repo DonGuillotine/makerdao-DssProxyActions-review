@@ -121,3 +121,145 @@ The DssProxyActions contract implements a proxy pattern that allows users to int
    - Permission management
    - Safe transfer operations
    - CDP ownership verification
+
+## 2.0 DssProxyActions CONTRACT REVIEW <div id="review"/>
+
+I have conducted a thorough review of the DssProxyActions contract and identified several key components and potential areas of concern. Here's my detailed analysis:
+
+### Core Components Analysis
+
+1. **Common Contract Base**
+```solidity
+contract Common {
+    uint256 constant RAY = 10 ** 27;
+    
+    function mul(uint x, uint y) internal pure returns (uint z) {
+        require(y == 0 || (z = x * y) / y == x, "mul-overflow");
+    }
+}
+```
+- The Common contract provides basic mathematical operations
+- Uses RAY precision (10^27) for fixed-point arithmetic
+- Implements safe multiplication with overflow checks
+
+2. **ETH Management Functions**
+```solidity
+function lockETH(
+    address manager,
+    address ethJoin,
+    uint cdp
+) public payable {
+    ethJoin_join(ethJoin, address(this));
+    VatLike(ManagerLike(manager).vat()).frob(
+        ManagerLike(manager).ilks(cdp),
+        ManagerLike(manager).urns(cdp),
+        address(this),
+        address(this),
+        toInt(msg.value),
+        0
+    );
+}
+```
+- Handles ETH collateral locking
+- Converts ETH to WETH for protocol compatibility
+- Properly manages state changes through the Vat system
+
+3. **Critical Security Considerations**
+
+a) **Permission Management**
+```solidity
+function safeLockETH(
+    address manager,
+    address ethJoin,
+    uint cdp,
+    address owner
+) public payable {
+    require(ManagerLike(manager).owns(cdp) == owner, "owner-missmatch");
+    lockETH(manager, ethJoin, cdp);
+}
+```
+- Implements ownership verification
+- Prevents unauthorized CDP manipulation
+- Uses explicit require statements for validation
+
+b) **State Management**
+```solidity
+function draw(
+    address manager,
+    address jug,
+    address daiJoin,
+    uint cdp,
+    uint wad
+) public {
+    address urn = ManagerLike(manager).urns(cdp);
+    address vat = ManagerLike(manager).vat();
+    bytes32 ilk = ManagerLike(manager).ilks(cdp);
+    frob(manager, cdp, 0, _getDrawDart(vat, jug, urn, ilk, wad));
+    move(manager, cdp, address(this), toRad(wad));
+    if (VatLike(vat).can(address(this), address(daiJoin)) == 0) {
+        VatLike(vat).hope(daiJoin);
+    }
+    DaiJoinLike(daiJoin).exit(msg.sender, wad);
+}
+```
+- Complex state transitions
+- Multiple contract interactions
+- Proper permission checks before operations
+
+4. **Proxy Pattern Implementation**
+```solidity
+function giveToProxy(
+    address proxyRegistry,
+    address manager,
+    uint cdp,
+    address dst
+) public {
+    address proxy = ProxyRegistryLike(proxyRegistry).proxies(dst);
+    if (proxy == address(0) || ProxyLike(proxy).owner() != dst) {
+        uint csize;
+        assembly {
+            csize := extcodesize(dst)
+        }
+        require(csize == 0, "Dst-is-a-contract");
+        proxy = ProxyRegistryLike(proxyRegistry).build(dst);
+    }
+    give(manager, cdp, proxy);
+}
+```
+- Implements proxy contract creation and management
+- Includes safety checks for contract destinations
+- Properly handles proxy ownership verification
+
+5. **Debt Management Functions**
+```solidity
+function wipe(
+    address manager,
+    address daiJoin,
+    uint cdp,
+    uint wad
+) public {
+    address vat = ManagerLike(manager).vat();
+    address urn = ManagerLike(manager).urns(cdp);
+    bytes32 ilk = ManagerLike(manager).ilks(cdp);
+
+    address own = ManagerLike(manager).owns(cdp);
+    if (own == address(this) || ManagerLike(manager).cdpCan(own, cdp, address(this)) == 1) {
+        daiJoin_join(daiJoin, urn, wad);
+        frob(manager, cdp, 0, _getWipeDart(vat, VatLike(vat).dai(urn), urn, ilk));
+    } else {
+        // Alternative path for unauthorized access
+        daiJoin_join(daiJoin, address(this), wad);
+        VatLike(vat).frob(
+            ilk,
+            urn,
+            address(this),
+            address(this),
+            0,
+            _getWipeDart(vat, wad * RAY, urn, ilk)
+        );
+    }
+}
+```
+- Handles debt repayment operations
+- Implements proper authorization checks
+- Contains multiple execution paths based on permissions
